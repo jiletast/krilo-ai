@@ -1,0 +1,79 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required)
+//   - email: string (required, email)
+//   - credits: integer (required)
+//   - lastRefill: timestamp (required)
+//   - subscriptionType: string (required, enum: free, pro, plus, ultra)
+//   - subscriptionExpiresAt: timestamp (optional)
+//
+// Collection: games
+// Document ID: {gameId}
+// Fields:
+//   - gameId: string (required)
+//   - userId: string (required)
+//   - title: string (required)
+//   - prompt: string (required)
+//   - code: string (required)
+//   - type: string (required, enum: 2D, 3D)
+//   - createdAt: timestamp (required)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "akinmacionez@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'credits', 'lastRefill', 'subscriptionType']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.credits is int &&
+             data.subscriptionType in ['free', 'pro', 'plus', 'ultra'];
+    }
+
+    function isValidGame(data) {
+      return data.keys().hasAll(['gameId', 'userId', 'title', 'prompt', 'code', 'type', 'createdAt']) &&
+             data.gameId is string &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() < 100 &&
+             data.prompt is string && data.prompt.size() < 1000 &&
+             data.code is string && data.code.size() < 1000000 &&
+             data.type in ['2D', '3D'];
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.credits == 50 && request.resource.data.subscriptionType == 'free';
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && 
+                      (request.resource.data.subscriptionType == resource.data.subscriptionType || isAdmin())) || isAdmin();
+    }
+
+    match /games/{gameId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidGame(request.resource.data);
+      allow update: if false; // Games are immutable for now
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+  }
+}

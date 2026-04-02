@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with credit and subscription data",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "credits": { "type": "integer", "description": "Current available credits" },
+        "lastRefill": { "type": "string", "format": "date-time", "description": "Last time credits were refilled" },
+        "subscriptionType": { "type": "string", "enum": ["free", "pro", "plus", "ultra"] },
+        "subscriptionExpiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "credits", "lastRefill", "subscriptionType"]
+    },
+    "Game": {
+      "title": "Game",
+      "description": "Generated game data",
+      "type": "object",
+      "properties": {
+        "gameId": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "prompt": { "type": "string" },
+        "code": { "type": "string", "description": "Generated HTML/JS code for the game" },
+        "type": { "type": "string", "enum": ["2D", "3D"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["gameId", "userId", "title", "prompt", "code", "type", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User documents"
+    },
+    "/games/{gameId}": {
+      "schema": "Game",
+      "description": "Generated games"
+    }
+  }
+}
